@@ -39,17 +39,20 @@ Admin Product पेज में custom field label और key जोड़त�
 
 केवल `+ - * / ( )` और numeric variables स्वीकार होते हैं। `eval()` इस्तेमाल नहीं किया गया है। Unit label free text है।
 
-## 7. Agent order amount approval और वित्तीय सुरक्षा
-नए Agent orders `billingStatus: PendingReview` के साथ बनते हैं। Admin Orders पेज में रकम जाँचकर सही रकम दर्ज करता है और **रकम मंजूर** दबाता है। केवल मंजूर orders ही नए Dashboard totals, monthly reports और ledgers में शामिल होते हैं। Staff केवल order status बदल सकता है; amount या billing approval नहीं। Firestore Rules भी यही सीमाएँ लागू करते हैं। पुराने orders जिनमें `billingStatus` नहीं है, वे पुराने रिकॉर्ड के रूप में मंजूर माने जाते हैं।
+## 7. Final payment model: Agent Wallet
 
-**महत्वपूर्ण:** Admin approval workflow client-side UI के साथ Firestore Rules से role-gated है; यह server-side formula calculation नहीं है। Admin को मंजूरी से पहले product, media, dimensions और rate जाँचने होंगे।
+पुराना per-order manual payment clearance अंतिम workflow नहीं है। तय किया गया अंतिम मॉडल:
+- हर Agent का अपना prepaid Wallet होगा।
+- Admin हर Agent के लिए 0–10% discount तय करेगा; discount उसके नए orders पर अपने आप लागू होगा।
+- Agent UPI QR या Bank Transfer से recharge request करेगा। Admin वास्तविक बैंक/UPI receipt verify करने के बाद ही wallet credit करेगा।
+- Order amount authoritative rate master से trusted backend पर calculate होगा; browser से भेजी गई amount पर भरोसा नहीं होगा।
+- Discount के बाद payable amount Wallet से atomically debit होगा और उसी transaction में order बनेगा।
+- Insufficient balance पर न order बनेगा, न debit होगा।
+- हर recharge, debit, refund और adjustment का immutable ledger रहेगा।
 
-## 8. बहुत जरूरी वित्तीय सुरक्षा सीमा
-इस build में Agent browser पर amount calculate करता है और Firestore order document में amount भेजता है। Firestore Rules केवल role और ownership validate करते हैं; वे मनमाने custom formula का सही result verify नहीं कर सकते। इसलिए technically knowledgeable user browser request बदलकर amount बदल सकता है। इस build को live financial billing के लिए तब तक final न मानें जब तक server-side price validation लागू न हो।
+D1 की शुरुआती schema `migrations/0001_wallet.sql` में है। विस्तृत architecture और सुरक्षा शर्तें `WALLET-ARCHITECTURE-HI.md` में हैं।
 
-Firebase Spark plan पर Cloud Functions deploy करने के लिए billing/Blaze की जरूरत पड़ सकती है। बिना card/paid plan के विकल्प:
-1. Orders को `Submitted` रखें और Admin द्वारा rate/amount verify करके approve करने के बाद ही bill/ledger में जोड़ें; या
-2. ऐसा backend चुनें जो free tier में server-side functions देता हो और उसकी limits/terms पहले verify करें।
+**महत्वपूर्ण स्थिति:** अभी यह schema/design foundation है, live Wallet feature नहीं। Cloudflare Worker authentication, trusted rate calculation, atomic debit/order creation, admin recharge verification और end-to-end tests पूरे होने तक इसे live financial use में न लें।
 
 ## 9. अभी शामिल नहीं
 - PDF invoice / monthly statement export
