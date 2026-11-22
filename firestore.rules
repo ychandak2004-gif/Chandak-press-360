@@ -25,21 +25,27 @@ service cloud.firestore {
     }
     match /orders/{id} {
       allow read: if admin() || staff() || (agent() && resource.data.agentId == request.auth.uid);
-      // Agent-submitted amounts are provisional until an admin verifies them.
       allow create: if agent()
         && request.resource.data.agentId == request.auth.uid
-        && request.resource.data.status == "Submitted"
-        && request.resource.data.billingStatus == "PendingReview"
+        && request.resource.data.status == "Awaiting Payment"
+        && request.resource.data.paymentStatus == "Unpaid"
         && request.resource.data.amount is number
         && request.resource.data.amount >= 0;
-      // Staff may update only workflow status. Financial fields remain admin-only.
       allow update: if admin() || (staff()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status"]));
+        && (
+          (resource.data.paymentStatus == "Paid"
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status"]))
+          || (resource.data.paymentStatus != "Paid"
+            && request.resource.data.paymentStatus == "Paid"
+            && request.resource.data.status == "Queued"
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["paymentStatus","paidAmount","paidAt","status"]))
+        ));
       allow delete: if admin();
     }
     match /payments/{id} {
       allow read: if admin() || staff() || (agent() && resource.data.agentId == request.auth.uid);
-      allow create: if admin() || staff();\n      allow update, delete: if admin();
+      allow create: if admin() || staff();
+      allow update, delete: if admin();
     }
   }
 }
