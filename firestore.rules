@@ -39,7 +39,7 @@ service cloud.firestore {
     }
     match /payments/{id} {
       allow read: if admin() || staff() || (agent() && resource.data.agentId == request.auth.uid);
-      allow create, update, delete: if admin() || staff();
+      allow create: if admin() || staff();\n      allow update, delete: if admin();
     }
   }
 }
