@@ -1,6 +1,6 @@
 # Chandak Press 360 — Build 1
 
-यह शुरुआती कार्यशील वेब ऐप है: Firebase Authentication + Firestore, role-based screens, agent order submission, admin product/media/rate setup, formula-based amount preview, order status, payments और ledger views.
+यह Build 1 का सुरक्षित सुधार चरण है: Firebase Authentication + Firestore, role-based screens, agent order submission, admin product/media/rate setup, formula-based amount preview, order status, payments और ledger views. इस branch में नए Agent orders की रकम Admin approval से पहले provisional रहती है।
 
 ## 1. Firebase config
 आपके दिए हुए Firebase Web App config को `src/firebase-config.js` में पहले से सेट कर दिया गया है। यह public client config है; Service Account private key कभी browser में न डालें। `.firebaserc` में आपका project `chandak-offset-press360` सेट है।
@@ -39,14 +39,22 @@ Admin Product पेज में custom field label और key जोड़त�
 
 केवल `+ - * / ( )` और numeric variables स्वीकार होते हैं। `eval()` इस्तेमाल नहीं किया गया है। Unit label free text है।
 
-## 7. बहुत जरूरी वित्तीय सुरक्षा सीमा
-इस build में Agent browser पर amount calculate करता है और Firestore order document में amount भेजता है। Firestore Rules केवल role और ownership validate करते हैं; वे मनमाने custom formula का सही result verify नहीं कर सकते। इसलिए technically knowledgeable user browser request बदलकर amount बदल सकता है। इस build को live financial billing के लिए तब तक final न मानें जब तक server-side price validation लागू न हो।
+## 7. Final payment model: Agent Wallet
 
-Firebase Spark plan पर Cloud Functions deploy करने के लिए billing/Blaze की जरूरत पड़ सकती है। बिना card/paid plan के विकल्प:
-1. Orders को `Submitted` रखें और Admin द्वारा rate/amount verify करके approve करने के बाद ही bill/ledger में जोड़ें; या
-2. ऐसा backend चुनें जो free tier में server-side functions देता हो और उसकी limits/terms पहले verify करें।
+पुराना per-order manual payment clearance अंतिम workflow नहीं है। तय किया गया अंतिम मॉडल:
+- हर Agent का अपना prepaid Wallet होगा।
+- Admin हर Agent के लिए 0–10% discount तय करेगा; discount उसके नए orders पर अपने आप लागू होगा।
+- Agent UPI QR या Bank Transfer से recharge request करेगा। Admin वास्तविक बैंक/UPI receipt verify करने के बाद ही wallet credit करेगा।
+- Order amount authoritative rate master से trusted backend पर calculate होगा; browser से भेजी गई amount पर भरोसा नहीं होगा।
+- Discount के बाद payable amount Wallet से atomically debit होगा और उसी transaction में order बनेगा।
+- Insufficient balance पर न order बनेगा, न debit होगा।
+- हर recharge, debit, refund और adjustment का immutable ledger रहेगा।
 
-## 8. अभी शामिल नहीं
+D1 की शुरुआती schema `migrations/0001_wallet.sql` में है। विस्तृत architecture और सुरक्षा शर्तें `WALLET-ARCHITECTURE-HI.md` में हैं।
+
+**महत्वपूर्ण स्थिति:** अभी यह schema/design foundation है, live Wallet feature नहीं। Cloudflare Worker authentication, trusted rate calculation, atomic debit/order creation, admin recharge verification और end-to-end tests पूरे होने तक इसे live financial use में न लें।
+
+## 9. अभी शामिल नहीं
 - PDF invoice / monthly statement export
 - File/photo uploads (Firebase Storage billing requirement के कारण)
 - WhatsApp automation
@@ -55,3 +63,11 @@ Firebase Spark plan पर Cloud Functions deploy करने के लिए 
 - Advanced staff permission matrix, backup/restore UI, expenses/suppliers
 
 इनको production release से पहले अलग चरण में implement और test करना होगा।
+
+
+## Payment gate (new)
+- हर नया Agent order `Awaiting Payment` और `Unpaid` से शुरू होता है।
+- पूरा भुगतान मिलने पर Admin/Staff Payments स्क्रीन में उसी Order को चुनकर भुगतान दर्ज करेगा। रिकॉर्ड होने पर Order `Paid` और `Queued` होगा।
+- केवल `Paid` orders Production Queue में दिखाई देंगे। Unpaid order का production status आगे नहीं बढ़ सकता।
+- इस चरण में partial payment स्वीकार नहीं है; पूरी order amount मिलने पर ही job queue में जाएगी।
+- Agent स्वयं payment को Paid mark नहीं कर सकता।
