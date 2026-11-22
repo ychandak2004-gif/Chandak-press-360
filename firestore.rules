@@ -1,17 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn(){ return request.auth != null; }
-    function userDoc(){ return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
-    function activeUser(){ return signedIn() && userDoc().active == true; }
-    function role(){ return userDoc().role; }
-    function admin(){ return activeUser() && role() == 'admin'; }
-    function staff(){ return activeUser() && role() == 'staff'; }
-    function agent(){ return activeUser() && role() == 'agent'; }
+    function signedIn() { return request.auth != null; }
+    function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function hasUserProfile() { return signedIn() && exists(userPath()); }
+    function userDoc() { return get(userPath()).data; }
+    function activeUser() { return hasUserProfile() && userDoc().active == true; }
+    function role() { return activeUser() ? userDoc().role : ""; }
+    function admin() { return activeUser() && role() == "admin"; }
+    function staff() { return activeUser() && role() == "staff"; }
+    function agent() { return activeUser() && role() == "agent"; }
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || admin());
-      // Initial admin role must be provisioned manually in Firebase Console.
       allow create, update, delete: if admin();
     }
     match /products/{id} {
@@ -24,11 +25,16 @@ service cloud.firestore {
     }
     match /orders/{id} {
       allow read: if admin() || staff() || (agent() && resource.data.agentId == request.auth.uid);
-      // Agents may submit only for themselves. Client-submitted amount is NOT tamper-proof
-      // without a trusted server. See README before real financial use.
-      allow create: if agent() && request.resource.data.agentId == request.auth.uid
-                    && request.resource.data.status == 'Submitted';
-      allow update: if admin() || staff();
+      // Agent-submitted amounts are provisional until an admin verifies them.
+      allow create: if agent()
+        && request.resource.data.agentId == request.auth.uid
+        && request.resource.data.status == "Submitted"
+        && request.resource.data.billingStatus == "PendingReview"
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 0;
+      // Staff may update only workflow status. Financial fields remain admin-only.
+      allow update: if admin() || (staff()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status"]));
       allow delete: if admin();
     }
     match /payments/{id} {
