@@ -60,3 +60,11 @@ Firebase Spark plan पर Cloud Functions deploy करने के लिए 
 - Advanced staff permission matrix, backup/restore UI, expenses/suppliers
 
 इनको production release से पहले अलग चरण में implement और test करना होगा।
+
+
+## Payment gate (new)
+- हर नया Agent order `Awaiting Payment` और `Unpaid` से शुरू होता है।
+- पूरा भुगतान मिलने पर Admin/Staff Payments स्क्रीन में उसी Order को चुनकर भुगतान दर्ज करेगा। रिकॉर्ड होने पर Order `Paid` और `Queued` होगा।
+- केवल `Paid` orders Production Queue में दिखाई देंगे। Unpaid order का production status आगे नहीं बढ़ सकता।
+- इस चरण में partial payment स्वीकार नहीं है; पूरी order amount मिलने पर ही job queue में जाएगी।
+- Agent स्वयं payment को Paid mark नहीं कर सकता।
