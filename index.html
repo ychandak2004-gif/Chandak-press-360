@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#172554">
+  <title>Chandak Press 360</title>
+  <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+  <div id="loginView" class="login-wrap">
+    <section class="login-card">
+      <div class="brand-mark">CO</div>
+      <p class="eyebrow">CHANDAK OFFSET</p>
+      <h1>Press 360</h1>
+      <p class="muted">ऑर्डर • प्रोडक्शन • बिलिंग • लेजर</p>
+      <form id="loginForm">
+        <label>Email<input id="loginEmail" type="email" autocomplete="username" required></label>
+        <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required></label>
+        <button class="primary full" type="submit">Login करें</button>
+        <p id="loginError" class="error"></p>
+      </form>
+    </section>
+  </div>
+
+  <div id="appView" class="app hidden">
+    <aside class="sidebar">
+      <div class="side-brand"><div class="brand-mark small">CO</div><div><b>Chandak Press 360</b><small>Management System</small></div></div>
+      <div id="userBadge" class="user-badge"></div>
+      <nav id="nav"></nav>
+      <button id="logoutBtn" class="logout">↪ Logout</button>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div><p class="eyebrow">CHANDAK OFFSET</p><h2 id="pageTitle">Dashboard</h2></div><span id="today"></span></header>
+      <div id="notice" class="notice hidden"></div>
+      <section id="page"></section>
+    </main>
+  </div>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>

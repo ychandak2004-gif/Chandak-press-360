@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn(){ return request.auth != null; }
+    function userDoc(){ return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function activeUser(){ return signedIn() && userDoc().active == true; }
+    function role(){ return userDoc().role; }
+    function admin(){ return activeUser() && role() == 'admin'; }
+    function staff(){ return activeUser() && role() == 'staff'; }
+    function agent(){ return activeUser() && role() == 'agent'; }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || admin());
+      // Initial admin role must be provisioned manually in Firebase Console.
+      allow create, update, delete: if admin();
+    }
+    match /products/{id} {
+      allow read: if activeUser();
+      allow write: if admin();
+    }
+    match /agents/{id} {
+      allow read: if admin() || staff();
+      allow create, update, delete: if admin();
+    }
+    match /orders/{id} {
+      allow read: if admin() || staff() || (agent() && resource.data.agentId == request.auth.uid);
+      // Agents may submit only for themselves. Client-submitted amount is NOT tamper-proof
+      // without a trusted server. See README before real financial use.
+      allow create: if agent() && request.resource.data.agentId == request.auth.uid
+                    && request.resource.data.status == 'Submitted';
+      allow update: if admin() || staff();
+      allow delete: if admin();
+    }
+    match /payments/{id} {
+      allow read: if admin() || staff() || (agent() && resource.data.agentId == request.auth.uid);
+      allow create, update, delete: if admin() || staff();
+    }
+  }
+}
